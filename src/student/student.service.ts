@@ -1,71 +1,138 @@
 import { ForbiddenException, Injectable } from '@nestjs/common';
 import { PrismaService } from 'src/prisma/prisma.service';
-import { StudentLoginDto, StudentSignupDto } from './dto';
-import * as argon from 'argon2';
-import { PrismaClientKnownRequestError } from '@prisma/client/runtime';
+import { Student } from '@prisma/client';
 
 @Injectable()
 export class StudentService {
   constructor(private prisma: PrismaService) {}
 
-  async signup(dto: StudentSignupDto) {
-    const {
-      password,
-      email,
-      firstName,
-      lastName,
-      country,
-      passwordConfirmation,
-    } = dto;
+  async findOne(id: number) {
+    const student = await this.prisma.student.findUnique({
+      where: {
+        id: id,
+      },
+    });
 
-    if (password !== passwordConfirmation) {
-      console.log('passwords miss match');
-    }
+    return student;
+  }
 
-    const hash = await argon.hash(password);
-
+  async updateProfile(dto: Student, id: number) {
     try {
-      const student = await this.prisma.student.create({
+      const updatedStudent = await this.prisma.student.update({
+        where: {
+          id,
+        },
         data: {
-          email,
-          country,
-          first_name: firstName,
-          last_name: lastName,
-          password: hash,
+          ...dto,
         },
       });
 
-      delete student.password;
-      return student;
+      delete updatedStudent.password;
+
+      return updatedStudent;
     } catch (error) {
-      console.log('-------------- error', error.code, '++++++++++++++++++');
-      // if (error instanceof PrismaClientKnownRequestError) {}
-      if (error.code === 'P2002') {
-        throw new ForbiddenException('Credentials taken');
+      if (error.code === 'P2025') {
+        throw new ForbiddenException('The student is not found');
       }
       throw error;
     }
   }
 
-  async login(dto: StudentLoginDto) {
-    const { email, password } = dto;
-    const student = await this.prisma.student.findUnique({
-      where: {
-        email: email,
-      },
-    });
+  async enroll(studentId: number, courseId: number) {
+    try {
+      const courses = await this.prisma.enroll.findMany({
+        where: {
+          student_id: studentId,
+        },
+      });
 
-    if (!student) {
-      throw new ForbiddenException('Credentials incorrect');
+      const currentCourse = courses.find(
+        (current) => current.course_id === courseId,
+      );
+
+      if (currentCourse) {
+        throw new ForbiddenException('the course is already enrolled');
+      }
+
+      const enrolled = await this.prisma.enroll.create({
+        data: {
+          student_id: studentId,
+          course_id: courseId,
+        },
+      });
+
+      return enrolled;
+    } catch (error) {
+      if (error.code === 'P2003') {
+        throw new ForbiddenException('The student is not found');
+      }
+      throw error;
     }
+  }
 
-    const passwordMatches = await argon.verify(student.password, password);
+  async getCourses(id: number) {
+    try {
+      const coursesIds = await this.prisma.enroll.findMany({
+        where: {
+          student_id: id,
+        },
+      });
 
-    if (!passwordMatches) {
-      throw new ForbiddenException('Credentials incorrect');
+      const coursesPromise = [];
+      coursesIds.forEach(async (current) => {
+        const course = this.prisma.course.findUnique({
+          where: {
+            id: current.course_id,
+          },
+        });
+        coursesPromise.push(course);
+      });
+
+      const courses = Promise.all(coursesPromise)
+        .then((response) => response)
+        .catch((error) => error);
+
+      return courses;
+    } catch (error) {
+      throw error;
     }
+  }
 
-    delete student.password;
-    return student;
+  async unsubscribe(id: number, ids: number[]) {
+    try {
+      const currentCourses = await this.prisma.enroll.findMany({
+        where: {
+          student_id: id,
+        },
+      });
+
+      const idsToDelete = [];
+
+      ids.forEach((id) => {
+        currentCourses.forEach((current) => {
+          if (current.course_id === id) {
+            idsToDelete.push(current.id);
+          }
+        });
+      });
+
+      const unsubscribePromises = [];
+      idsToDelete.forEach((idToDelete) => {
+        const promise = this.prisma.enroll.delete({
+          where: {
+            id: idToDelete,
+          },
+        });
+        unsubscribePromises.push(promise);
+      });
+
+      const unsubscribed = Promise.all(unsubscribePromises)
+        .then((response) => response)
+        .catch((error) => error);
+
+      return unsubscribed;
+    } catch (error) {
+      throw error;
+    }
   }
 }
