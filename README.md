@@ -36,13 +36,28 @@ $ yarn install
 
 ```bash
 # development
-$ yarn run start
+$ yarn start:dev
 
 # watch mode
-$ yarn run start:dev
+$ yarn start:dev
 
 # production mode
-$ yarn run start:prod
+$ yarn start:prod
+```
+
+## Running the Database
+
+```bash
+The database is a Postgres DB and runs on Docker
+
+# start a fresh DB in development
+$ yarn db:dev:restart
+
+# seed the DB
+$ yarn db:dev:seed
+
+# inspect the database tables and records 
+$ yarn prisma:dev:studio
 ```
 
 ## Test
@@ -56,6 +71,11 @@ $ yarn run test:e2e
 
 # test coverage
 $ yarn run test:cov
+```
+
+## Swagger 
+```bash
+Swagger runs on http://localhost:3500/api
 ```
 
 ## Support
