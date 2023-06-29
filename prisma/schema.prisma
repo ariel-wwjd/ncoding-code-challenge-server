@@ -1,0 +1,79 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Student {
+  id         Int      @id @default(autoincrement())
+  created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
+
+  email          String @unique
+  password       String
+
+  first_name     String?
+  last_name      String?
+  country        String?
+  gender         String?
+  address        String?
+  educatio_level String?
+  birth_date     DateTime?
+  phone_number   Int?
+
+  enrolls Enroll[]
+
+  @@map("students")
+}
+
+model Course{
+  id          Int      @id @default(autoincrement())
+  created_at  DateTime @default(now())
+  updated_at  DateTime @updatedAt
+
+  name        String
+  description String?
+
+  enrolls Enroll[]
+  course_categories Course_category[]
+
+  @@map("courses")
+}
+
+model Enroll{
+  id         Int      @id @default(autoincrement())
+  created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
+
+  student_id Int
+  student    Student @relation(fields: [student_id], references: [id])
+  course_id  Int
+  course     Course @relation(fields: [course_id], references: [id])
+
+}
+
+model Course_category {
+  id          Int      @id @default(autoincrement())
+  created_at  DateTime @default(now())
+  updated_at  DateTime @updatedAt
+
+  course_id   Int
+  course      Course @relation(fields: [course_id], references: [id])
+  category_id Int
+  category    Category @relation(fields: [category_id], references: [id])
+}
+
+model Category {
+  id         Int      @id @default(autoincrement())
+  created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
+
+  name       String
+
+  course_categories Course_category[]
+
+  @@map("categories")
+}
