@@ -38,6 +38,7 @@ export class AuthService {
           password: hash,
         },
       });
+      delete student.password;
 
       const payload = { sub: student.id, username: student.email };
 
@@ -46,6 +47,7 @@ export class AuthService {
           secret: this.config.get('JWT_SECRET'),
           expiresIn: '5min',
         }),
+        student,
       };
     } catch (error) {
       if (error.code === 'P2002') {
@@ -57,24 +59,31 @@ export class AuthService {
 
   async login(dto: LoginDto) {
     const { email, password } = dto;
-    const student = await this.prisma.student.findUnique({
-      where: {
-        email: email,
-      },
-    });
 
-    const passwordMatches = await argon.verify(student.password, password);
+    try {
+      const student = await this.prisma.student.findUnique({
+        where: {
+          email: email,
+        },
+      });
 
-    if (!passwordMatches) {
-      throw new ForbiddenException('Credentials incorrect');
+      const passwordMatches = await argon.verify(student.password, password);
+
+      if (!passwordMatches) {
+        throw new ForbiddenException('Credentials incorrect');
+      }
+      const payload = { sub: student.id, username: email };
+      delete student.password;
+
+      return {
+        access_token: await this.jwtService.signAsync(payload, {
+          secret: this.config.get('JWT_SECRET'),
+          expiresIn: '60min',
+        }),
+        student,
+      };
+    } catch (error) {
+      throw error;
     }
-    const payload = { sub: student.id, username: email };
-
-    return {
-      access_token: await this.jwtService.signAsync(payload, {
-        secret: this.config.get('JWT_SECRET'),
-        expiresIn: '60min',
-      }),
-    };
   }
 }
